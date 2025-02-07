@@ -1,0 +1,11 @@
+Flask
+Flask-Cors
+SQLAlchemy
+Werkzeug
+python-dotenv
+pandas
+reportlab
+PyMySQL
+psycopg2-binary
+pyodbc
+gunicorn
