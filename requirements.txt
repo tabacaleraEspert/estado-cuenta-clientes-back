@@ -11,6 +11,4 @@ pyodbc
 gunicorn
 openpyxl
 datetime
-zipfile
-logging
-traceback
+
