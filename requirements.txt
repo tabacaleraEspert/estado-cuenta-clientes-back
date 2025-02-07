@@ -9,3 +9,8 @@ PyMySQL
 psycopg2-binary
 pyodbc
 gunicorn
+openpyxl
+datetime
+zipfile
+logging
+traceback
