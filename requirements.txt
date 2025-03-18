@@ -11,4 +11,6 @@ pyodbc
 gunicorn
 openpyxl
 datetime
+xlsxwriter
+shutil
 

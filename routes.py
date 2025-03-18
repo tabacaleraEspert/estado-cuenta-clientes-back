@@ -15,7 +15,6 @@ from excelSaldoUltimos30DiasAPDF import procesar_excel_a_pdf  # 📌 Importamos 
 from jsonSaldoUltimos30DiasAPDF import procesar_json_a_pdf
 import xlsxwriter
 import io
-from flask_socketio import SocketIO
 import shutil  # Agregar esta importación al inicio del archivo
 
 
@@ -25,9 +24,6 @@ import shutil  # Agregar esta importación al inicio del archivo
 # 📌 Configurar logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-
-# 📌 Inicializar SocketIO
-socketio = SocketIO(cors_allowed_origins="*")  # Permite cualquier origen
 
 
 # 📌 Definir un Blueprint
