@@ -12,5 +12,4 @@ gunicorn
 openpyxl
 datetime
 xlsxwriter
-shutil
 
