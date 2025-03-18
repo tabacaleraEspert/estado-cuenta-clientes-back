@@ -12,10 +12,20 @@ import zipfile
 import logging
 import traceback
 from excelSaldoUltimos30DiasAPDF import procesar_excel_a_pdf  # 📌 Importamos la función directamente
+from jsonSaldoUltimos30DiasAPDF import procesar_json_a_pdf
+import xlsxwriter
+import io
+from flask_socketio import SocketIO
+
+
+
 
 # 📌 Configurar logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+# 📌 Inicializar SocketIO
+socketio = SocketIO(cors_allowed_origins="*")  # Permite cualquier origen
 
 
 # 📌 Definir un Blueprint
@@ -37,6 +47,7 @@ def allowed_file(filename):
 def generar_pdf_con_python(excel_file_path, output_dir, razones_sociales):
     try:
         # 📌 Ejecutar la función directamente en lugar de `subprocess.run()`
+        archivos_pdf = procesar_excel_a_pdf(excel_file_path, output_dir, razones_sociales)
         archivos_pdf = procesar_excel_a_pdf(excel_file_path, output_dir, razones_sociales)
 
         if not archivos_pdf:
@@ -103,6 +114,7 @@ def upload_file():
         error_trace = traceback.format_exc()
         logger.error(f"❌ Error en la generación del ZIP: {str(e)}\n{error_trace}")
         return jsonify({"error": f"Error al generar el ZIP: {str(e)}"}), 500
+    
 # 📌 Ruta para obtener comprobantes cargados hoy
 @uploads_bp.route("/comprobantes", methods=["GET"])
 def get_comprobantes():
@@ -115,11 +127,131 @@ def get_comprobantes():
         razones_sociales = [row.RazonSocial for row in result]
         emails = [row.email for row in result]
         vendedores = [row.Vendedor for row in result]
+        codigos = [row.CodigoCliente for row in result]
 
         if not razones_sociales:
             return "No se encontraron razones sociales con comprobantes cargados hoy.", 404
 
-        return jsonify({"razonesSociales": razones_sociales, "emails": emails, "vendedores": vendedores})
+        return jsonify({"razonesSociales": razones_sociales, "emails": emails, "vendedores": vendedores, "codigos": codigos})
 
     except Exception as e:
         return f"Error al conectar con la base de datos: {str(e)}", 500
+    
+@uploads_bp.route("/saldo-acumulado", methods=["GET"])
+def get_saldo_acumulado():
+    try:
+        logger.info("📌 Iniciando consulta de saldo acumulado...")
+
+        db = next(get_db())
+
+        # 📌 Obtener el parámetro clienteCod desde la URL
+        cliente_cod = request.args.get("clienteCod")
+        if not cliente_cod:
+            logger.warning("⚠️ No se proporcionó clienteCod en la solicitud.")
+            return jsonify({"error": "Se requiere el parámetro clienteCod"}), 400
+
+        # 📌 Ejecutar la consulta en la vista de Bejerman con filtro por clienteCod
+        query = text("SELECT * FROM _DL_PBI_EstadoCtaCte_SaldoAcum WHERE clienteCod = :cliente_cod")
+        result = db.execute(query, {"cliente_cod": cliente_cod}).fetchall()
+
+        if not result:
+            logger.warning(f"⚠️ No se encontraron registros para ClienteCod: {cliente_cod}")
+            return jsonify({"message": "No se encontraron datos para el cliente"}), 404
+
+        # 📌 Convertir cada fila en un diccionario
+        datos = [dict(row._mapping) for row in result]  # ✅ Convierte Row en diccionario
+
+        logger.info(f"✅ Se encontraron {len(datos)} registros para ClienteCod: {cliente_cod}")
+        return jsonify(datos)
+
+    except Exception as e:
+        logger.error(f"❌ Error al obtener saldo acumulado: {str(e)}")
+        return jsonify({"error": f"Error al obtener saldo acumulado: {str(e)}"}), 500
+
+
+
+@uploads_bp.route("/saldo-acumulado-excel", methods=["GET"])
+def get_saldo_acumulado_excel():
+    try:
+        logger.info("📌 Iniciando generación de Excel para saldo acumulado...")
+
+        db = next(get_db())
+
+        # 📌 Obtener el parámetro clienteCod desde la URL
+        cliente_cod = request.args.get("clienteCod")
+        if not cliente_cod:
+            logger.warning("⚠️ No se proporcionó clienteCod en la solicitud.")
+            return jsonify({"error": "Se requiere el parámetro clienteCod"}), 400
+
+        # 📌 Ejecutar la consulta en la vista de Bejerman con filtro por clienteCod
+        query = text("SELECT * FROM _DL_PBI_EstadoCtaCte_SaldoAcum WHERE clienteCod = :cliente_cod")
+        result = db.execute(query, {"cliente_cod": cliente_cod})
+
+        rows = result.fetchall()
+        if not rows:
+            logger.warning(f"⚠️ No se encontraron registros para ClienteCod: {cliente_cod}")
+            return jsonify({"message": "No se encontraron datos para el cliente"}), 404
+
+        # 📌 Obtener nombres de columnas desde `cursor.description`
+        column_names = [col[0] for col in result.cursor.description]
+
+        # 📌 Convertir filas en listas de valores
+        data = [list(row) for row in rows]  
+
+        # 📌 Crear un archivo Excel en memoria
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet()
+
+        # 📌 Escribir encabezados
+        for col_num, column_name in enumerate(column_names):
+            worksheet.write(0, col_num, column_name)
+
+        # 📌 Escribir los datos
+        for row_num, row_data in enumerate(data, start=1):
+            for col_num, cell_value in enumerate(row_data):
+                worksheet.write(row_num, col_num, cell_value)
+
+        # 📌 Cerrar el workbook
+        workbook.close()
+        output.seek(0)
+
+        # 📌 Devolver el archivo como una descarga
+        logger.info("✅ Excel generado con éxito, enviando archivo...")
+        return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=f"SaldoAcumulado_{cliente_cod}.xlsx")
+
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        logger.error(f"❌ Error al generar Excel: {str(e)}\n{error_trace}")
+        return jsonify({"error": f"Error al generar Excel: {str(e)}"}), 500
+    
+@uploads_bp.route("/comprobantes-con-saldo", methods=["POST"])
+def get_comprobantes_con_saldo():
+    try:
+        db = next(get_db())
+        data = request.get_json()
+        codigos = data.get("codigos", [])
+
+        if not codigos:
+            return jsonify({"error": "No se proporcionaron códigos de clientes"}), 400
+
+        saldos = {}
+        for codigo in codigos:
+            query = text("SELECT * FROM _DL_PBI_EstadoCtaCte_SaldoAcum WHERE clienteCod = :cliente_cod")
+            saldo_result = db.execute(query, {"cliente_cod": codigo}).fetchall()
+            saldos[codigo] = [dict(row._mapping) for row in saldo_result] if saldo_result else []
+
+        pdf_directory = "./pdfs"
+        os.makedirs(pdf_directory, exist_ok=True)
+        pdf_files = procesar_json_a_pdf(saldos, pdf_directory)
+
+        zip_filename = os.path.join(pdf_directory, "comprobantes_con_saldo.zip")
+        with zipfile.ZipFile(zip_filename, "w") as zipf:
+            for pdf_file in pdf_files:
+                zipf.write(pdf_file, os.path.basename(pdf_file))
+
+        return send_file(zip_filename, as_attachment=True, download_name="comprobantes_con_saldo.zip")
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

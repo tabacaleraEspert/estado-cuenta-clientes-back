@@ -4,17 +4,19 @@ from sqlalchemy import text
 def comprobantes_cargados_hoy_razon_social():
     return text("""
         SELECT DISTINCT 
-            cv.cvecli_RazSoc AS RazonSocial, -- Razón social del cliente
-            cl.cli_Email AS email, -- Email del cliente
-            v.Ven_desc AS Vendedor -- Nombre del vendedor
+            cv.cvecli_RazSoc AS RazonSocial,  -- Razón social del cliente
+            cl.cli_Email AS email,  -- Email del cliente
+            v.Ven_desc AS Vendedor,  -- Nombre del vendedor
+            cv.cve_CodCli AS CodigoCliente  -- Código del cliente
+
         FROM 
             CabVenta cv
         JOIN 
-            Clientes cl ON cv.cve_CodCli = cl.cli_Cod -- Relación entre CabVenta y Clientes
+            Clientes cl ON cv.cve_CodCli = cl.cli_Cod  -- Relación entre CabVenta y Clientes
         LEFT JOIN 
-            Vendedor v ON cv.cveven_Cod = v.Ven_Cod -- Relación con Vendedor
+            Vendedor v ON cv.cveven_Cod = v.Ven_Cod  -- Relación con Vendedor
         WHERE 
-            CONVERT(DATE, cv.cve_FEmision) = CONVERT(DATE, GETDATE()) -- Filtrar por fecha de hoy
+            CONVERT(DATE, cv.cve_FEmision) = CONVERT(DATE, GETDATE())  -- Filtrar por fecha de hoy
         ORDER BY 
             cv.cvecli_RazSoc ASC;
     """)
