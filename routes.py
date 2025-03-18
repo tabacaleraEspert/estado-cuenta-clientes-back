@@ -113,7 +113,25 @@ def upload_file():
         logger.error(f"❌ Error en la generación del ZIP: {str(e)}\n{error_trace}")
         return jsonify({"error": f"Error al generar el ZIP: {str(e)}"}), 500
     
-# 📌 Ruta para obtener comprobantes cargados hoy
+    
+    # 📌 Ruta para obtener comprobantes cargados hoy
+# @uploads_bp.route("/comprobantes", methods=["GET"])
+# def get_comprobantes():
+#     try:
+#         db = next(get_db())
+
+#         razon_social_query = comprobantes_cargados_hoy_razon_social()
+#         result = db.execute(razon_social_query).fetchall()
+
+#         print(result)
+
+#         return jsonify({"result": [dict(row._mapping) for row in result]})
+
+#     except Exception as e:
+#         return f"Error al conectar con la base de datos: {str(e)}", 500
+    
+    
+# 📌 Ruta para obtener comprobantes cargados hoy ESTE ES EL QUE VAA
 @uploads_bp.route("/comprobantes", methods=["GET"])
 def get_comprobantes():
     try:
