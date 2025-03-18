@@ -261,7 +261,13 @@ def get_comprobantes_con_saldo():
 
         saldos = {}
         for codigo in codigos:
-            query = text("SELECT * FROM _DL_PBI_EstadoCtaCte_SaldoAcum WHERE clienteCod = :cliente_cod")
+            query = text("""
+                SELECT * 
+                FROM _DL_PBI_EstadoCtaCte_SaldoAcum 
+                WHERE clienteCod = :cliente_cod 
+                AND Femision >= DATEADD(DAY, -30, GETDATE())  -- Solo registros de los últimos 30 días
+            """)
+            
             saldo_result = db.execute(query, {"cliente_cod": codigo}).fetchall()
             saldos[codigo] = [dict(row._mapping) for row in saldo_result] if saldo_result else []
 

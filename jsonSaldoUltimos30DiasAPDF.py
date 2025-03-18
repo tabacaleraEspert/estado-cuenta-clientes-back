@@ -90,7 +90,7 @@ def procesar_json_a_pdf(datos_json, pdf_directory):
             data_rows = df_source[required_columns].values.tolist()
 
             for row in data_rows:
-                for i in [4, 5, 6]:  # Índices de las columnas Debe, Haber, Saldo
+                for i in [4, 5]:  # Índices de las columnas Debe, Haber, Saldo
                     row[i] = format_money(row[i]) if row[i] and not pd.isna(row[i]) else ""
 
             return data_rows
