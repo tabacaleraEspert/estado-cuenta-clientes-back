@@ -16,6 +16,8 @@ from jsonSaldoUltimos30DiasAPDF import procesar_json_a_pdf
 import xlsxwriter
 import io
 from flask_socketio import SocketIO
+import shutil  # Agregar esta importación al inicio del archivo
+
 
 
 
@@ -236,14 +238,19 @@ def get_comprobantes_con_saldo():
         if not codigos:
             return jsonify({"error": "No se proporcionaron códigos de clientes"}), 400
 
+        pdf_directory = "./pdfs"
+
+        # 📌 Limpiar la carpeta antes de comenzar
+        if os.path.exists(pdf_directory):
+            shutil.rmtree(pdf_directory)
+        os.makedirs(pdf_directory, exist_ok=True)
+
         saldos = {}
         for codigo in codigos:
             query = text("SELECT * FROM _DL_PBI_EstadoCtaCte_SaldoAcum WHERE clienteCod = :cliente_cod")
             saldo_result = db.execute(query, {"cliente_cod": codigo}).fetchall()
             saldos[codigo] = [dict(row._mapping) for row in saldo_result] if saldo_result else []
 
-        pdf_directory = "./pdfs"
-        os.makedirs(pdf_directory, exist_ok=True)
         pdf_files = procesar_json_a_pdf(saldos, pdf_directory)
 
         zip_filename = os.path.join(pdf_directory, "comprobantes_con_saldo.zip")
@@ -251,7 +258,12 @@ def get_comprobantes_con_saldo():
             for pdf_file in pdf_files:
                 zipf.write(pdf_file, os.path.basename(pdf_file))
 
-        return send_file(zip_filename, as_attachment=True, download_name="comprobantes_con_saldo.zip")
+        response = send_file(zip_filename, as_attachment=True, download_name="comprobantes_con_saldo.zip")
+
+        # 📌 Eliminar la carpeta después de completar la generación
+        shutil.rmtree(pdf_directory)
+
+        return response
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
