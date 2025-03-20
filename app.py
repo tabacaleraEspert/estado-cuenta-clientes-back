@@ -9,10 +9,12 @@ app = Flask(__name__)
 port = int(os.getenv("PORT", 5001))
 
 # Configurar CORS para permitir solicitudes desde el frontend
-# allowed_origins = ["https://jolly-flower-07b4b210f.4.azurestaticapps.net", "http://localhost:5173"]
-# CORS(app, origins=allowed_origins, methods=["GET", "POST", "PUT", "DELETE"], supports_credentials=True)
+allowed_origins = ["https://jolly-flower-07b4b210f.4.azurestaticapps.net", "http://localhost:5173"]
+CORS(app, origins=allowed_origins, methods=["GET", "POST", "PUT", "DELETE"], supports_credentials=True)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 1800  # 15 minutos
 
-CORS(app, resources={r"/*": {"origins": "*"}})
+
+# CORS(app, resources={r"/*": {"origins": "*"}})
 
 
 # 📌 Registrar el Blueprint `uploads_bp`
