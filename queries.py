@@ -1,7 +1,6 @@
 from sqlalchemy import text
 
 
-# 📌 Query para obtener los comprobantes cargados hoy
 # def comprobantes_cargados_hoy_razon_social():
 #     return text("""
 #         SELECT 
@@ -17,7 +16,7 @@ from sqlalchemy import text
 #     """)
 
 
-# 📌 Query para obtener los comprobantes cargados hoy ESTE ES EL QUE VVAa
+# # 📌 Query para obtener los comprobantes cargados hoy ESTE ES EL QUE VVAa
 def comprobantes_cargados_hoy_razon_social():
     return text("""
         SELECT DISTINCT 
@@ -33,7 +32,7 @@ def comprobantes_cargados_hoy_razon_social():
         LEFT JOIN 
             Vendedor v ON cv.cveven_Cod = v.Ven_Cod  -- Relación con Vendedor
         WHERE 
-    CONVERT(DATE, cv.cve_FEmision) = CONVERT(DATE, DATEADD(DAY, -1, GETDATE()))  -- Filtrar por fecha de ayer
+    CONVERT(DATE, cv.cve_FEmision) = CONVERT(DATE,  GETDATE())  -- Filtrar por fecha de ayer
         ORDER BY 
             cv.cvecli_RazSoc ASC;
     """)
