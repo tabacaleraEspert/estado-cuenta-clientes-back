@@ -55,11 +55,6 @@ def procesar_json_a_pdf(datos_json, pdf_directory):
 
         df["ComprobanteNro"] = df["ComprobanteNro"].astype(str).apply(replace_comprobante)
         df = df.sort_values(by=["Femision"])
-        
-                # 📌 Separar en "Deuda en Cta.Cte." y "Remitos pendientes de facturar"
-        df_deuda = df[~df["ComprobanteNro"].str.startswith("RT")]  # No RT
-        df_remitos = df[df["ComprobanteNro"].str.startswith("RT")]  # Solo RT
-        
 
         # 📌 Verificar si las columnas necesarias existen
         required_columns = ["Femision", "ComprobanteNro", "FechaVto", "CondVta", "Debe_Loc", "Haber_Loc", "SaldoAcum_Loc"]
@@ -79,10 +74,9 @@ def procesar_json_a_pdf(datos_json, pdf_directory):
             "SaldoAcum_Loc": "Saldo"
         }
         new_header = [column_mappings[col] for col in required_columns]
-        
-        def prepare_data_rows(df_source, hide_saldo=False):
+        def prepare_data_rows(df_source):
             """Formatea las filas con formato monetario y convierte fechas a dd/mm/aaaa"""
-
+            
             # 📌 Convertir las columnas de fecha al formato dd/mm/aaaa
             date_columns = ["Femision", "FechaVto"]
             for col in date_columns:
@@ -97,8 +91,6 @@ def procesar_json_a_pdf(datos_json, pdf_directory):
 
             for row in data_rows:
                 for i in [4, 5, 6]:  # Índices de las columnas Debe, Haber, Saldo
-                    if i == 6 and hide_saldo:
-                        row[i] = ""  # 🔹 Oculta el saldo en la sección de Remitos
                     if i == 6 and (row[i] == 0 or pd.isna(row[i])):  
                         row[i] = "0,00"  # 🔹 Mantiene "0,00" en la columna 6 cuando es 0 o NaN
                     else:
@@ -106,25 +98,22 @@ def procesar_json_a_pdf(datos_json, pdf_directory):
 
             return data_rows
 
-        data_rows_deuda = prepare_data_rows(df_deuda)
-        data_rows_remitos = prepare_data_rows(df_remitos, hide_saldo=True)
-      
+        data_rows = prepare_data_rows(df)
+
         # 📌 Generar PDF
         razon_social = registros[0]["RazonSocial"] if registros else f"Cliente_{cliente_cod}"
         sanitized_razon = razon_social.replace("/", "_").replace("\\", "_").replace(" ", "_")
         pdf_file = os.path.join(pdf_directory, f"{sanitized_razon}.pdf")
         pdf_files.append(pdf_file)
 
+        # Crear encabezados
         styles = getSampleStyleSheet()
         p_date = Paragraph(datetime.today().strftime("%d/%m/%Y"), styles["Normal"])
         p_title = Paragraph(f"Estado de Cuenta - {razon_social}", styles["Title"])
-        p_deuda_title = Paragraph("<b>1. Deuda en Cta.Cte.</b>", styles["Heading2"])
-        p_remitos_title = Paragraph("<b>2. Remitos pendientes de Facturar - Valor Estimado</b>", styles["Heading2"])
 
-        # Ajuste de ancho de columnas para evitar superposición
-        column_widths = [80, 120, 80, 80, 80, 80, 80]  
-
-        header_table = Table([new_header], colWidths=column_widths)
+        # Crear tabla de encabezado
+        header_table_data = [new_header]
+        header_table = Table(header_table_data, colWidths=[80] * len(new_header))
         header_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -133,42 +122,36 @@ def procesar_json_a_pdf(datos_json, pdf_directory):
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ]))
 
-        data_table_deuda = Table(data_rows_deuda, colWidths=column_widths)
-        data_table_deuda.setStyle(TableStyle([
+        # Crear tabla de datos
+        data_table = Table(data_rows, colWidths=[80] * len(new_header))
+        data_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ]))
-        # 📌 Resaltar el último valor de la columna "Saldo" en la sección 1 (Deuda en Cta.Cte.)
-        if data_rows_deuda:
-            last_row_index = len(data_rows_deuda) - 1  # Índice de la última fila
+    # 📌 Resaltar el último valor de la columna "Saldo"
+        if data_rows:
+            last_row_index = len(data_rows) - 1  # Índice de la última fila
             saldo_column_index = new_header.index("Saldo")  # Posición de la columna Saldo
 
-            data_table_deuda.setStyle(TableStyle([
+            data_table.setStyle(TableStyle([
                 ('BOX', (saldo_column_index, last_row_index), (saldo_column_index, last_row_index), 2, colors.red),  # Marco rojo
                 ('BACKGROUND', (saldo_column_index, last_row_index), (saldo_column_index, last_row_index), colors.yellow),  # Fondo amarillo
                 ('FONTNAME', (saldo_column_index, last_row_index), (saldo_column_index, last_row_index), 'Helvetica-Bold'),  # Texto en negrita
                 ('TEXTCOLOR', (saldo_column_index, last_row_index), (saldo_column_index, last_row_index), colors.black),  # Texto en negro
             ]))
 
-
-        data_table_remitos = Table(data_rows_remitos, colWidths=column_widths)
-        data_table_remitos.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        
-
+        # Crear documento PDF
         doc = SimpleDocTemplate(pdf_file, pagesize=landscape(letter))
-        elements = [
-            p_date, Spacer(1, 12), p_title, Spacer(1, 12),
-            p_deuda_title, Spacer(1, 6), header_table, Spacer(1, 6), data_table_deuda, Spacer(1, 12),
-            p_remitos_title, Spacer(1, 6), header_table, Spacer(1, 6), data_table_remitos
-        ]
+        elements = [p_date, Spacer(1, 12), p_title, Spacer(1, 12), header_table, Spacer(1, 12), data_table]
         doc.build(elements)
 
         print(f"✅ PDF generado: {pdf_file}")
 
     print("🎉 Proceso finalizado. PDFs generados correctamente.")
     return pdf_files  
+
+
+
+
+
