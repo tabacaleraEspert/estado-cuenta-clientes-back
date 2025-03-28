@@ -78,7 +78,7 @@ def procesar_excel_a_pdf(excel_file, pdf_directory, razones_sociales_permitidas)
         df_filtered = df[df['RazonSocial'] == razon_social].copy()
         print(f"📌 Total registros después de filtrar por '{razon_social}': {len(df_filtered)}")
 
-        df_filtered = df_filtered.sort_values(by=['Femision'])  # Ordenar por fecha
+        df_filtered = df_filtered.sort_values(by=["Femision", "ComprobanteNro"])  # Ordenar por fecha
 
         # 📌 Verificar si las columnas existen antes de seleccionar
         missing_columns = [col for col in ["Femision", "ComprobanteNro", "FechaVto", "CondVta", "Debe_Loc", "Haber_Loc", "SaldoAcum_Loc"] if col not in df_filtered.columns]
