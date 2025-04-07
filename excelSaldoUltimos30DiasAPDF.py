@@ -78,7 +78,7 @@ def procesar_excel_a_pdf(excel_file, pdf_directory, razones_sociales_permitidas)
         df_filtered = df[df['RazonSocial'] == razon_social].copy()
         print(f"📌 Total registros después de filtrar por '{razon_social}': {len(df_filtered)}")
 
-        df_filtered = df_filtered.sort_values(by=["Femision", "ComprobanteNro"])  # Ordenar por fecha
+        df_filtered = df_filtered.sort_values(by=['Femision'])  # Ordenar por fecha
 
         # 📌 Verificar si las columnas existen antes de seleccionar
         missing_columns = [col for col in ["Femision", "ComprobanteNro", "FechaVto", "CondVta", "Debe_Loc", "Haber_Loc", "SaldoAcum_Loc"] if col not in df_filtered.columns]
@@ -154,6 +154,20 @@ def procesar_excel_a_pdf(excel_file, pdf_directory, razones_sociales_permitidas)
 
             print("\n📌 Vista previa después de convertir columnas a número:")
             print(df_source[["Debe_Loc", "Haber_Loc", "SaldoAcum_Loc"]].head(10))  # Verifica la conversión
+            
+                # 📌 Extraer parte numérica del comprobante para ordenar
+            df_source["ComprobanteNro_Num"] = (
+                df_source["ComprobanteNro"]
+                .astype(str)
+                .str.extract(r"(\d{6,})")[0]
+                .astype(float)
+            )
+
+            # 📌 Ordenar por fecha y número de comprobante si se pudo extraer
+            if df_source["ComprobanteNro_Num"].notna().any():
+                df_source = df_source.sort_values(by=["Femision", "ComprobanteNro_Num"])
+            else:
+                df_source = df_source.sort_values(by=["Femision"])
 
             data_rows = df_source.values.tolist()
 
@@ -167,6 +181,8 @@ def procesar_excel_a_pdf(excel_file, pdf_directory, razones_sociales_permitidas)
                     except Exception as e:
                         print(f"⚠️ Error en formato de datos: {e} | Valor problemático: {row[i]}")
                         row[i] = "0,00"  # 🔹 Valor por defecto si hay error
+
+            df_source.drop(columns=["ComprobanteNro_Num"], inplace=True)
 
             return data_rows
 
